@@ -486,6 +486,7 @@ public partial class bingx : Exchange
                 } },
                 { "networks", new Dictionary<string, object>() {
                     { "ARB", "ARBITRUM" },
+                    { "MATIC", "POLYGON" },
                 } },
             } },
         });
@@ -790,7 +791,7 @@ public partial class bingx : Exchange
         if (isTrue(isTrue((isEqual(this.safeString(market, "apiStateOpen"), "true"))) && isTrue((isEqual(this.safeString(market, "apiStateClose"), "true")))))
         {
             isActive = true; // swap active
-        } else if (isTrue(isTrue(isTrue(this.safeBool(market, "apiStateSell")) && isTrue(this.safeBool(market, "apiStateBuy"))) && isTrue((isEqual(this.safeNumber(market, "status"), 1)))))
+        } else if (isTrue(isTrue(isTrue(this.safeBool(market, "apiStateSell")) && isTrue(this.safeBool(market, "apiStateBuy"))) && isTrue((isEqual(this.safeString(market, "status"), "1")))))
         {
             isActive = true; // spot active
         }

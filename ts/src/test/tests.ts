@@ -888,10 +888,11 @@ class testMainClass {
         //  -----------------------------------------------------------------------------
         const calculatedString = jsonStringify (calculatedOutput);
         const storedString = jsonStringify (storedOutput);
-        let errorMessage = message + ' computed ' + storedString + ' stored: ' + calculatedString;
+        let errorMessage = message;
         if (key !== undefined) {
-            errorMessage = ' | ' + key + ' | ' + 'computed value: ' + storedString + ' stored value: ' + calculatedString;
+            errorMessage = '[' + key + ']';
         }
+        errorMessage += ' computed: ' + storedString + ' stored: ' + calculatedString;
         assert (cond, errorMessage);
     }
 
@@ -1026,9 +1027,17 @@ class testMainClass {
                 // when comparing the response we want to allow some flexibility, because a 50.0 can be equal to 50 after saving it to the json file
                 this.assertStaticError (sanitizedNewOutput === sanitizedStoredOutput, messageError, storedOutput, newOutput, assertingKey);
             } else {
-                const isBoolean = (typeof sanitizedNewOutput === 'boolean') || (typeof sanitizedStoredOutput === 'boolean');
-                const isString = (typeof sanitizedNewOutput === 'string') || (typeof sanitizedStoredOutput === 'string');
-                const isUndefined = (sanitizedNewOutput === undefined) || (sanitizedStoredOutput === undefined); // undefined is a perfetly valid value
+                const isComputedBool = (typeof sanitizedNewOutput === 'boolean');
+                const isStoredBool = (typeof sanitizedStoredOutput === 'boolean');
+                const isComputedString = (typeof sanitizedNewOutput === 'string');
+                const isStoredString = (typeof sanitizedStoredOutput === 'string');
+                const isComputedUndefined = (sanitizedNewOutput === undefined);
+                const isStoredUndefined = (sanitizedStoredOutput === undefined);
+                const shouldBeSame = (isComputedBool === isStoredBool) && (isComputedString === isStoredString) && (isComputedUndefined === isStoredUndefined);
+                this.assertStaticError (shouldBeSame, 'output type mismatch', storedOutput, newOutput, assertingKey);
+                const isBoolean = isComputedBool || isStoredBool;
+                const isString = isComputedString || isStoredString;
+                const isUndefined = isComputedUndefined || isStoredUndefined; // undefined is a perfetly valid value
                 if (isBoolean || isString || isUndefined)  {
                     if (this.lang === 'C#') {
                         // tmp c# number comparsion
@@ -1422,7 +1431,8 @@ class testMainClass {
             this.testXT (),
             this.testVertex (),
             this.testParadex (),
-            this.testHashkey ()
+            this.testHashkey (),
+            this.testCoincatch ()
         ];
         await Promise.all (promises);
         const successMessage = '[' + this.lang + '][TEST_SUCCESS] brokerId tests passed.';
@@ -1931,6 +1941,23 @@ class testMainClass {
             reqHeaders = exchange.last_request_headers;
         }
         assert (reqHeaders['INPUT-SOURCE'] === id, 'hashkey - id: ' + id + ' not in headers.');
+        if (!isSync ()) {
+            await close (exchange);
+        }
+        return true;
+    }
+
+    async testCoincatch () {
+        const exchange = this.initOfflineExchange ('coincatch');
+        let reqHeaders = undefined;
+        const id = "47cfy";
+        try {
+            await exchange.createOrder ('BTC/USDT', 'limit', 'buy', 1, 20000);
+        } catch (e) {
+            // we expect an error here, we're only interested in the headers
+            reqHeaders = exchange.last_request_headers;
+        }
+        assert (reqHeaders['X-CHANNEL-API-CODE'] === id, 'coincatch - id: ' + id + ' not in headers.');
         if (!isSync ()) {
             await close (exchange);
         }

@@ -6,7 +6,7 @@
 from ccxt.async_support.base.exchange import Exchange
 from ccxt.abstract.deribit import ImplicitAPI
 import hashlib
-from ccxt.base.types import Account, Balances, Currencies, Currency, DepositAddress, Greeks, Int, Market, MarketInterface, Num, Option, OptionChain, Order, OrderBook, OrderSide, OrderType, Str, Strings, Ticker, Tickers, FundingRate, Trade, TradingFees, Transaction, TransferEntry
+from ccxt.base.types import Account, Balances, Currencies, Currency, DepositAddress, Greeks, Int, Market, Num, Option, OptionChain, Order, OrderBook, OrderSide, OrderType, Str, Strings, Ticker, Tickers, FundingRate, Trade, TradingFees, Transaction, MarketInterface, TransferEntry
 from typing import List
 from ccxt.base.errors import ExchangeError
 from ccxt.base.errors import AuthenticationError
@@ -327,17 +327,20 @@ class deribit(Exchange, ImplicitAPI):
                         'limit': 100,  # todo: revise
                         'daysBack': 100000,
                         'untilDays': 100000,
+                        'symbolRequired': True,  # todo
                     },
                     'fetchOrder': {
                         'marginMode': False,
                         'trigger': False,
                         'trailing': False,
+                        'symbolRequired': True,  # todo
                     },
                     'fetchOpenOrders': {
                         'marginMode': False,
                         'limit': None,
                         'trigger': False,
                         'trailing': False,
+                        'symbolRequired': True,  # todo
                     },
                     'fetchOrders': None,
                     'fetchClosedOrders': {
@@ -348,6 +351,7 @@ class deribit(Exchange, ImplicitAPI):
                         'untilDays': 100000,
                         'trigger': False,
                         'trailing': False,
+                        'symbolRequired': True,  # todo
                     },
                     'fetchOHLCV': {
                         'limit': 1000,  # todo: recheck
@@ -492,9 +496,6 @@ class deribit(Exchange, ImplicitAPI):
             'options': {
                 'code': 'BTC',
                 'fetchBalance': {
-                    'code': 'BTC',
-                },
-                'fetchPositions': {
                     'code': 'BTC',
                 },
                 'transfer': {
@@ -760,7 +761,7 @@ class deribit(Exchange, ImplicitAPI):
         result = self.safe_value(response, 'result', [])
         return self.parse_accounts(result)
 
-    def parse_account(self, account, currency: Currency = None):
+    def parse_account(self, account):
         #
         #      {
         #          "username": "someusername_1",
@@ -779,7 +780,7 @@ class deribit(Exchange, ImplicitAPI):
             'info': account,
             'id': self.safe_string(account, 'id'),
             'type': self.safe_string(account, 'type'),
-            'code': self.safe_currency_code(None, currency),
+            'code': None,
         }
 
     async def fetch_markets(self, params={}) -> List[Market]:
@@ -2659,32 +2660,18 @@ class deribit(Exchange, ImplicitAPI):
 
         :param str[]|None symbols: list of unified market symbols
         :param dict [params]: extra parameters specific to the exchange API endpoint
+        :param str [params.currency]: currency code filter for positions
         :param str [params.kind]: market type filter for positions 'future', 'option', 'spot', 'future_combo' or 'option_combo'
+        :param int [params.subaccount_id]: the user id for the subaccount
         :returns dict[]: a list of `position structure <https://docs.ccxt.com/#/?id=position-structure>`
         """
         await self.load_markets()
-        kind = self.safe_string(params, 'kind')
-        code = None
-        if symbols is None:
-            code = self.code_from_options('fetchPositions', params)
-        elif isinstance(symbols, str):
-            code = symbols
-            symbols = None  # fix https://github.com/ccxt/ccxt/issues/13961
-        else:
-            if isinstance(symbols, list):
-                length = len(symbols)
-                if length != 1:
-                    raise BadRequest(self.id + ' fetchPositions() symbols argument cannot contain more than 1 symbol')
-                market = self.market(symbols[0])
-                settle = market['settle']
-                code = settle if (settle is not None) else market['base']
-                kind = market['info']['kind']
-        currency = self.currency(code)
-        request: dict = {
-            'currency': currency['id'],
-        }
-        if kind is not None:
-            request['kind'] = kind
+        code = self.safe_string(params, 'currency')
+        request: dict = {}
+        if code is not None:
+            params = self.omit(params, 'currency')
+            currency = self.currency(code)
+            request['currency'] = currency['id']
         response = await self.privateGetGetPositions(self.extend(request, params))
         #
         #     {

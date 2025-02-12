@@ -361,17 +361,20 @@ class vertex(Exchange, ImplicitAPI):
                         'limit': 500,
                         'daysBack': 100000,  # todo
                         'untilDays': None,
+                        'symbolRequired': False,
                     },
                     'fetchOrder': {
                         'marginMode': False,
                         'trigger': False,
                         'trailing': False,
+                        'symbolRequired': True,
                     },
                     'fetchOpenOrders': {
                         'marginMode': False,
                         'limit': 500,
                         'trigger': True,
                         'trailing': False,
+                        'symbolRequired': False,
                     },
                     'fetchOrders': None,  # todo, only for trigger
                     'fetchClosedOrders': None,  # todo through fetchOrders
@@ -1520,7 +1523,7 @@ class vertex(Exchange, ImplicitAPI):
         marketId = base + '/' + quote
         if base.find('PERP') > 0:
             marketId = marketId.replace('-PERP', '') + ':USDC'
-        market = self.market(marketId)
+        market = self.safe_market(marketId, market)
         last = self.safe_string(ticker, 'last_price')
         return self.safe_ticker({
             'symbol': market['symbol'],
@@ -2394,14 +2397,15 @@ class vertex(Exchange, ImplicitAPI):
             'digests': ids,
             'nonce': nonce,
         }
+        productIds = cancels['productIds']
         marketIdNum = self.parse_to_numeric(marketId)
         for i in range(0, len(ids)):
-            cancels['productIds'].append(marketIdNum)
+            productIds.append(marketIdNum)
         request = {
             'cancel_orders': {
                 'tx': {
                     'sender': cancels['sender'],
-                    'productIds': cancels['productIds'],
+                    'productIds': productIds,
                     'digests': cancels['digests'],
                     'nonce': self.number_to_string(cancels['nonce']),
                 },
